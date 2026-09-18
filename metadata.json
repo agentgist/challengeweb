@@ -1,0 +1,6 @@
+{
+  "name": "منصة المسابقات التعليمية",
+  "description": "منصة مسابقات تفاعلية وشهادات تقدير فورية بدون تسجيل للمعلمين والطلاب مع دعم الذكاء الاصطناعي ومسابقات الفرق",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
