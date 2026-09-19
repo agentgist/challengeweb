@@ -112,7 +112,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50/70 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-sans selection:bg-teal-500 selection:text-white bg-grid-pattern transition-colors" dir="rtl">
+    <div className="min-h-screen bg-slate-50/70 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-sans bg-grid-pattern transition-colors" dir="rtl">
       
       {/* Clean Luxury Navbar */}
       <Navbar
@@ -129,7 +129,7 @@ export default function App() {
       />
 
       {/* Main Container */}
-      <main className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 py-6">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-8 py-7 sm:py-9">
         
         {/* PUBLIC HOME: Google Minimalist 2-Choice Layout (Student vs Teacher) */}
         {activePage === 'home' && (
@@ -198,16 +198,17 @@ export default function App() {
       </main>
 
       {/* Ultra-Clean Google-style Footer */}
-      <footer className="bg-white border-t border-slate-100 py-6 text-xs text-slate-400 mt-auto">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="text-slate-500 font-medium">
-            تَنَافُسْ • منصة المسابقات المدرسية والشهادات الفورية
+      <footer className="border-t border-slate-200/80 bg-white/70 py-7 text-xs text-slate-400 backdrop-blur dark:border-slate-800 dark:bg-slate-950/70 mt-auto">
+        <div className="max-w-7xl mx-auto px-4 sm:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-2 font-bold text-slate-500 dark:text-slate-400">
+            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#10233f] text-cyan-300"><Award className="h-3.5 w-3.5" /></span>
+            تَنَافُسْ • مساحة كل إنجاز
           </div>
 
           <div className="flex items-center gap-5 text-[11px]">
             <button
               onClick={() => setActivePage('verify_certificate')}
-              className="text-slate-500 hover:text-slate-800 cursor-pointer transition-colors"
+              className="text-slate-500 hover:text-cyan-700 dark:hover:text-cyan-300 cursor-pointer transition-colors"
             >
               التحقق من الشهادات
             </button>
@@ -216,10 +217,10 @@ export default function App() {
             <button
               onClick={handleOpenAdmin}
               className="flex items-center gap-1 text-slate-400 hover:text-rose-700 cursor-pointer transition-colors"
-              title="رابط المدير المخصص للتحكم الكامل بالمنصة"
+              title="دخول إدارة المنصة"
             >
               <Shield className="w-3.5 h-3.5 text-slate-400" />
-              <span>رابط المدير المخصص (?portal=admin)</span>
+              <span>دخول الإدارة</span>
             </button>
           </div>
         </div>
