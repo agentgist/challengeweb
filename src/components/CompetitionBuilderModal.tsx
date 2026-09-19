@@ -18,7 +18,13 @@ import {
   Calendar,
   Lock,
   EyeOff,
-  Timer
+  Timer,
+  ArrowRight,
+  ArrowLeft,
+  School,
+  Check,
+  Zap,
+  BookOpen
 } from 'lucide-react';
 import { Competition, Question, QuestionType, ParticipationType, AccessCode, CompetitionType } from '../types';
 import { AIService } from '../services/aiService';
@@ -40,6 +46,9 @@ export const CompetitionBuilderModal: React.FC<CompetitionBuilderModalProps> = (
   isAdmin = false,
   editingCompetition,
 }) => {
+  // Wizard current step: 1: Type & Settings, 2: Questions & AI, 3: Review & Publish
+  const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
+
   // Form State
   const [name, setName] = useState(editingCompetition?.name || '');
   const [description, setDescription] = useState(editingCompetition?.description || '');
@@ -60,7 +69,6 @@ export const CompetitionBuilderModal: React.FC<CompetitionBuilderModalProps> = (
   const getTodayAtTime = (hours: number, minutes: number = 0) => {
     const d = new Date();
     d.setHours(hours, minutes, 0, 0);
-    // Adjust to local ISO string
     const offset = d.getTimezoneOffset() * 60000;
     return new Date(d.getTime() - offset).toISOString().slice(0, 16);
   };
@@ -72,11 +80,10 @@ export const CompetitionBuilderModal: React.FC<CompetitionBuilderModalProps> = (
     editingCompetition?.endTime || new Date(Date.now() + 3 * 86400000).toISOString().slice(0, 16)
   );
 
-  // When competitionType changes, adjust reasonable defaults
+  // Adjust timing and rules when competition type changes
   const handleCompetitionTypeSelect = (type: CompetitionType) => {
     setCompetitionType(type);
     if (type === 'live') {
-      // Direct live competition starting at specific time (e.g. 3:00 PM) and ends after exam duration
       const st = startTime || getTodayAtTime(15, 0);
       setStartTime(st);
       const startMs = new Date(st).getTime();
@@ -86,13 +93,11 @@ export const CompetitionBuilderModal: React.FC<CompetitionBuilderModalProps> = (
       setSingleAttempt(true);
       setHideAnswersUntilEnd(true);
     } else if (type === 'windowed') {
-      // Open for a window (e.g. 3 days), 1 attempt per student, hide answers until window ends
       setSingleAttempt(true);
       setHideAnswersUntilEnd(true);
       const offset = new Date().getTimezoneOffset() * 60000;
       setEndTime(new Date(Date.now() + 3 * 86400000 - offset).toISOString().slice(0, 16));
     } else {
-      // Open practice
       setSingleAttempt(false);
       setHideAnswersUntilEnd(false);
     }
@@ -118,7 +123,7 @@ export const CompetitionBuilderModal: React.FC<CompetitionBuilderModalProps> = (
   const [aiDifficulty, setAiDifficulty] = useState<'سهل' | 'متوسط' | 'متقدم'>('متوسط');
   const [aiCount, setAiCount] = useState(5);
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
-  const [aiReviewNotice, setAiReviewNotice] = useState(false);
+  const [activeQuestionTab, setActiveQuestionTab] = useState<'ai' | 'manual'>('ai');
 
   const [validationError, setValidationError] = useState<string | null>(null);
 
@@ -142,7 +147,7 @@ export const CompetitionBuilderModal: React.FC<CompetitionBuilderModalProps> = (
   // Remove Question
   const handleRemoveQuestion = (idx: number) => {
     if (questions.length <= 1) {
-      alert('يجب أن تحتوي المسابقة على سؤال واحد على الأقل.');
+      setValidationError('يجب أن تحتوي المسابقة على سؤال واحد على الأقل.');
       return;
     }
     setQuestions(prev => prev.filter((_, i) => i !== idx));
@@ -189,7 +194,6 @@ export const CompetitionBuilderModal: React.FC<CompetitionBuilderModalProps> = (
       if (generated && generated.length > 0) {
         setQuestions(generated);
         setQuestionType('ai');
-        setAiReviewNotice(true);
         if (!name) {
           setName(`تحدي ${aiTopic}`);
         }
@@ -204,16 +208,23 @@ export const CompetitionBuilderModal: React.FC<CompetitionBuilderModalProps> = (
     }
   };
 
-  // Form Submit
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  // Step 1 Validation
+  const handleNextFromStep1 = () => {
     setValidationError(null);
-
     if (!name.trim()) {
       setValidationError('يرجى إدخال اسم المسابقة.');
       return;
     }
+    if (new Date(endTime).getTime() <= new Date(startTime).getTime()) {
+      setValidationError('تاريخ ووقت النهاية يجب أن يكون بعد تاريخ البداية.');
+      return;
+    }
+    setCurrentStep(2);
+  };
 
+  // Step 2 Validation
+  const handleNextFromStep2 = () => {
+    setValidationError(null);
     if (questions.length === 0) {
       setValidationError('يرجى إضافة سؤال واحد على الأقل للمسابقة.');
       return;
@@ -231,14 +242,15 @@ export const CompetitionBuilderModal: React.FC<CompetitionBuilderModalProps> = (
         return;
       }
     }
+    setCurrentStep(3);
+  };
 
-    if (new Date(endTime).getTime() <= new Date(startTime).getTime()) {
-      setValidationError('تاريخ ووقت النهاية يجب أن يكون بعد تاريخ البداية.');
-      return;
-    }
+  // Final Form Submit
+  const handleFinalSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setValidationError(null);
 
     const cleanSlug = webSlug.trim().toLowerCase().replace(/[\s\/#?]+/g, '-');
-
     const teacherName = currentTeacher?.teacherDisplayName || (isAdmin ? 'إدارة المنصة التعليمية' : 'المعلم المشرف');
     const school = currentTeacher?.school || (isAdmin ? 'المنصة التعليمية المركزية' : 'المملكة العربية السعودية');
 
@@ -275,310 +287,221 @@ export const CompetitionBuilderModal: React.FC<CompetitionBuilderModalProps> = (
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 overflow-y-auto" dir="rtl">
-      <div className="bg-white rounded-3xl border border-slate-200 max-w-4xl w-full p-6 sm:p-8 shadow-2xl relative my-auto animate-in fade-in zoom-in-95 duration-150">
+    <div className="fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 overflow-y-auto" dir="rtl">
+      <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 max-w-4xl w-full p-6 sm:p-8 shadow-2xl relative my-auto animate-in fade-in zoom-in-95 duration-150 text-slate-900 dark:text-slate-100">
         
-        {/* Header */}
-        <div className="flex items-center justify-between pb-4 border-b border-slate-200 mb-6">
+        {/* Header with Close */}
+        <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-5">
           <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-2xl bg-teal-50 border border-teal-200 flex items-center justify-center text-teal-700">
-              <Layers className="w-6 h-6" />
+            <div className="w-10 h-10 rounded-2xl bg-teal-50 dark:bg-teal-950/80 border border-teal-200 dark:border-teal-800 text-teal-700 dark:text-teal-300 flex items-center justify-center font-bold">
+              <Layers className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-lg sm:text-xl font-black text-slate-900">
-                {editingCompetition ? 'تعديل المسابقة' : 'بناء مسابقة تعليمية جديدة'}
+              <h2 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white">
+                {editingCompetition ? 'تعديل المسابقة' : 'إنشاء مسابقة جديدة'}
               </h2>
-              <p className="text-xs text-slate-500">
-                خصص بيانات المسابقة، مصدر الأسئلة، ونمط المشاركة (فردي / فرق)
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                معالج إنشاء المسابقات المدرسية الذكية في 3 خطوات
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
+            className="p-2 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
+        {/* Wizard Stepper Bar */}
+        <div className="py-5 border-b border-slate-100 dark:border-slate-800">
+          <div className="flex items-center justify-between max-w-xl mx-auto">
+            
+            {/* Step 1 */}
+            <div 
+              onClick={() => setCurrentStep(1)}
+              className="flex items-center gap-2 cursor-pointer group"
+            >
+              <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-xs font-black transition-all ${
+                currentStep === 1 
+                  ? 'bg-teal-700 text-white shadow-md ring-4 ring-teal-100 dark:ring-teal-950' 
+                  : currentStep > 1 
+                  ? 'bg-emerald-600 text-white'
+                  : 'bg-slate-100 dark:bg-slate-800 text-slate-400'
+              }`}>
+                {currentStep > 1 ? <Check className="w-4 h-4" /> : '1'}
+              </div>
+              <div className="hidden sm:block text-right">
+                <span className={`text-xs font-bold block ${currentStep === 1 ? 'text-teal-700 dark:text-teal-400' : 'text-slate-500 dark:text-slate-400'}`}>
+                  النوع والوقت
+                </span>
+                <span className="text-[10px] text-slate-400">إعدادات الامتحان</span>
+              </div>
+            </div>
+
+            <div className={`flex-1 h-0.5 mx-3 ${currentStep >= 2 ? 'bg-teal-600' : 'bg-slate-200 dark:bg-slate-800'}`} />
+
+            {/* Step 2 */}
+            <div 
+              onClick={() => currentStep > 1 && setCurrentStep(2)}
+              className={`flex items-center gap-2 ${currentStep >= 2 ? 'cursor-pointer' : 'opacity-60'}`}
+            >
+              <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-xs font-black transition-all ${
+                currentStep === 2 
+                  ? 'bg-teal-700 text-white shadow-md ring-4 ring-teal-100 dark:ring-teal-950' 
+                  : currentStep > 2 
+                  ? 'bg-emerald-600 text-white'
+                  : 'bg-slate-100 dark:bg-slate-800 text-slate-400'
+              }`}>
+                {currentStep > 2 ? <Check className="w-4 h-4" /> : '2'}
+              </div>
+              <div className="hidden sm:block text-right">
+                <span className={`text-xs font-bold block ${currentStep === 2 ? 'text-teal-700 dark:text-teal-400' : 'text-slate-500 dark:text-slate-400'}`}>
+                  بنك الأسئلة والذكاء
+                </span>
+                <span className="text-[10px] text-slate-400">{questions.length} أسئلة</span>
+              </div>
+            </div>
+
+            <div className={`flex-1 h-0.5 mx-3 ${currentStep === 3 ? 'bg-teal-600' : 'bg-slate-200 dark:bg-slate-800'}`} />
+
+            {/* Step 3 */}
+            <div 
+              onClick={() => currentStep === 3 && setCurrentStep(3)}
+              className={`flex items-center gap-2 ${currentStep === 3 ? 'cursor-pointer' : 'opacity-60'}`}
+            >
+              <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-xs font-black transition-all ${
+                currentStep === 3 
+                  ? 'bg-teal-700 text-white shadow-md ring-4 ring-teal-100 dark:ring-teal-950' 
+                  : 'bg-slate-100 dark:bg-slate-800 text-slate-400'
+              }`}>
+                3
+              </div>
+              <div className="hidden sm:block text-right">
+                <span className={`text-xs font-bold block ${currentStep === 3 ? 'text-teal-700 dark:text-teal-400' : 'text-slate-500 dark:text-slate-400'}`}>
+                  المراجعة والنشر
+                </span>
+                <span className="text-[10px] text-slate-400">تأكيد الإطلاق</span>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        {/* Validation Error Banner */}
         {validationError && (
-          <div className="mb-5 p-3.5 bg-rose-50 border border-rose-200 rounded-2xl text-xs text-rose-700 flex items-center gap-2 font-medium">
-            <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
+          <div className="my-4 p-3 bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-900 rounded-2xl flex items-center gap-2 text-xs font-bold text-rose-700 dark:text-rose-300">
+            <AlertCircle className="w-4 h-4 shrink-0" />
             <span>{validationError}</span>
           </div>
         )}
 
-        {/* AI Review Notice banner */}
-        {aiReviewNotice && (
-          <div className="mb-5 p-3.5 bg-amber-50 border border-amber-300 rounded-2xl text-xs text-amber-900 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-amber-600 shrink-0" />
-              <span>
-                <strong>تم توليد الأسئلة بالذكاء الاصطناعي بنجاح!</strong> يمكنك الآن مراجعة نص كل سؤال والإجابة الصحيحة أدناه والضغط على زر الحفظ للاعتماد.
-              </span>
-            </div>
-            <button
-              type="button"
-              onClick={() => setAiReviewNotice(false)}
-              className="text-amber-800 text-[11px] font-bold underline cursor-pointer"
-            >
-              تمت المراجعة
-            </button>
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="space-y-6">
-          
-          {/* Section 0: Competition Type Selector (User Requirement #1) */}
-          <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl">
-            <div className="flex items-center justify-between mb-3">
-              <div>
-                <label className="text-xs font-black text-slate-900 block">
-                  نوع ونظام المسابقة ومواعيدها *
-                </label>
-                <p className="text-[11px] text-slate-500">
-                  اختر نمط جدولة المسابقة وشروط الإعلان والمشاركة
-                </p>
-              </div>
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-teal-50 text-teal-700 border border-teal-200">
-                محدد بدقة
-              </span>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              {/* Option 1: Live */}
-              <div
-                onClick={() => handleCompetitionTypeSelect('live')}
-                className={`p-3.5 rounded-2xl border-2 cursor-pointer transition-all ${
-                  competitionType === 'live'
-                    ? 'bg-white border-rose-500 shadow-sm ring-2 ring-rose-500/20'
-                    : 'bg-white/80 border-slate-200 hover:border-slate-300'
-                }`}
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <span className="inline-flex items-center gap-1.5 text-xs font-black text-rose-700">
-                    <span className="w-2 h-2 rounded-full bg-rose-600 animate-pulse"></span>
-                    مسابقة مباشرة
-                  </span>
-                  <input
-                    type="radio"
-                    name="compType"
-                    checked={competitionType === 'live'}
-                    onChange={() => handleCompetitionTypeSelect('live')}
-                    className="accent-rose-600 cursor-pointer"
-                  />
-                </div>
-                <p className="text-[11px] text-slate-600 leading-relaxed mb-2">
-                  تبدأ في موعد محدد (مثل الساعة 3:00 تماماً) وتنتهي بانتهاء مدة الامتحان المحددة لجميع الطلاب سوياً.
-                </p>
-                <div className="flex flex-wrap gap-1 text-[10px] text-slate-500 font-bold">
-                  <span className="px-1.5 py-0.5 bg-rose-50 text-rose-700 rounded-md">محاولة واحدة</span>
-                  <span className="px-1.5 py-0.5 bg-slate-100 text-slate-700 rounded-md">النتائج بعد النهاية</span>
-                </div>
-              </div>
-
-              {/* Option 2: Windowed */}
-              <div
-                onClick={() => handleCompetitionTypeSelect('windowed')}
-                className={`p-3.5 rounded-2xl border-2 cursor-pointer transition-all ${
-                  competitionType === 'windowed'
-                    ? 'bg-white border-teal-600 shadow-sm ring-2 ring-teal-600/20'
-                    : 'bg-white/80 border-slate-200 hover:border-slate-300'
-                }`}
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <span className="inline-flex items-center gap-1.5 text-xs font-black text-teal-800">
-                    <Calendar className="w-3.5 h-3.5 text-teal-600" />
-                    بفترة زمنية محددة
-                  </span>
-                  <input
-                    type="radio"
-                    name="compType"
-                    checked={competitionType === 'windowed'}
-                    onChange={() => handleCompetitionTypeSelect('windowed')}
-                    className="accent-teal-600 cursor-pointer"
-                  />
-                </div>
-                <p className="text-[11px] text-slate-600 leading-relaxed mb-2">
-                  تفتح وتغلق في موعد محدد (ساعات أو أيام)، ويسمح للطالب بالدخول والمشاركة لمرة واحدة فقط خلالها.
-                </p>
-                <div className="flex flex-wrap gap-1 text-[10px] text-slate-500 font-bold">
-                  <span className="px-1.5 py-0.5 bg-teal-50 text-teal-700 rounded-md">محاولة واحدة</span>
-                  <span className="px-1.5 py-0.5 bg-slate-100 text-slate-700 rounded-md">حجب الإجابات حتى الإغلاق</span>
-                </div>
-              </div>
-
-              {/* Option 3: Open Practice */}
-              <div
-                onClick={() => handleCompetitionTypeSelect('open')}
-                className={`p-3.5 rounded-2xl border-2 cursor-pointer transition-all ${
-                  competitionType === 'open'
-                    ? 'bg-white border-slate-800 shadow-sm ring-2 ring-slate-800/20'
-                    : 'bg-white/80 border-slate-200 hover:border-slate-300'
-                }`}
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <span className="inline-flex items-center gap-1.5 text-xs font-black text-slate-900">
-                    <Timer className="w-3.5 h-3.5 text-slate-700" />
-                    تدريب مفتوح فوري
-                  </span>
-                  <input
-                    type="radio"
-                    name="compType"
-                    checked={competitionType === 'open'}
-                    onChange={() => handleCompetitionTypeSelect('open')}
-                    className="accent-slate-900 cursor-pointer"
-                  />
-                </div>
-                <p className="text-[11px] text-slate-600 leading-relaxed mb-2">
-                  مفتوحة ومتاحة في أي وقت للتدريب الذاتي، تظهر النتيجة والإجابات الصحيحة وشروحاتها فور الانتهاء.
-                </p>
-                <div className="flex flex-wrap gap-1 text-[10px] text-slate-500 font-bold">
-                  <span className="px-1.5 py-0.5 bg-slate-100 text-slate-700 rounded-md">محاولات متعددة</span>
-                  <span className="px-1.5 py-0.5 bg-slate-100 text-slate-700 rounded-md">إظهار الإجابات فوراً</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Section 1: Classification & Dimensions */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 p-4 bg-slate-50 rounded-2xl border border-slate-200">
-            {/* Dimension 1: Source */}
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                1. جهة المسابقة
+        {/* ============================================================== */}
+        {/* STEP 1: TYPE & TIMING SETTINGS                                 */}
+        {/* ============================================================== */}
+        {currentStep === 1 && (
+          <div className="py-6 space-y-6 animate-in fade-in duration-150">
+            
+            {/* 3 Competition Types Selector */}
+            <div className="space-y-3">
+              <label className="text-xs font-black text-slate-800 dark:text-slate-200 block">
+                حدد نوع المسابقة:
               </label>
-              {isAdmin ? (
-                <select
-                  value={source}
-                  onChange={(e) => setSource(e.target.value as any)}
-                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-teal-600"
-                >
-                  <option value="platform">مسابقة منصة عامة (تظهر بالرئيسية)</option>
-                  <option value="teacher">مسابقة معلم (خاصة بالطلاب)</option>
-                </select>
-              ) : (
-                <div className="px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800">
-                  مسابقة معلم خاصة بطلابي
-                </div>
-              )}
-            </div>
 
-            {/* Dimension 2: Participation Mode */}
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                2. نمط المشاركة
-              </label>
-              <div className="grid grid-cols-2 gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => setParticipationType('individual')}
-                  className={`flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                    participationType === 'individual'
-                      ? 'bg-teal-700 text-white shadow-xs'
-                      : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-100'
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {/* 1. Direct Live Competition */}
+                <div
+                  onClick={() => handleCompetitionTypeSelect('live')}
+                  className={`p-4 rounded-2xl border-2 transition-all cursor-pointer relative flex flex-col justify-between space-y-3 ${
+                    competitionType === 'live'
+                      ? 'border-rose-500 bg-rose-50/40 dark:bg-rose-950/30 text-rose-950 dark:text-rose-200 shadow-sm'
+                      : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 bg-white dark:bg-slate-800/60'
                   }`}
                 >
-                  <User className="w-3.5 h-3.5" />
-                  <span>فردية</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setParticipationType('team')}
-                  className={`flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                    participationType === 'team'
-                      ? 'bg-teal-700 text-white shadow-xs'
-                      : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-100'
-                  }`}
-                >
-                  <Users className="w-3.5 h-3.5" />
-                  <span>فرق جماعية</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Dimension 3: Question Source */}
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                3. مصدر الأسئلة
-              </label>
-              <div className="grid grid-cols-2 gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => setQuestionType('manual')}
-                  className={`flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                    questionType === 'manual'
-                      ? 'bg-slate-900 text-white shadow-xs'
-                      : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-100'
-                  }`}
-                >
-                  <Edit3 className="w-3.5 h-3.5" />
-                  <span>يدوي</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setQuestionType('ai')}
-                  className={`flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                    questionType === 'ai'
-                      ? 'bg-amber-600 text-white shadow-xs'
-                      : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-100'
-                  }`}
-                >
-                  <Sparkles className="w-3.5 h-3.5" />
-                  <span>ذكاء اصطناعي</span>
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* AI Generator Box if Question Type is AI */}
-          {questionType === 'ai' && (
-            <div className="p-4 bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border border-amber-300 rounded-2xl space-y-3">
-              <div className="flex items-center gap-2 text-amber-900 font-bold text-xs">
-                <Sparkles className="w-4 h-4 text-amber-600" />
-                <span>محرك توليد الأسئلة الذكي (Gemini AI)</span>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-4 gap-2.5">
-                <div className="sm:col-span-2">
-                  <input
-                    type="text"
-                    value={aiTopic}
-                    onChange={(e) => setAiTopic(e.target.value)}
-                    placeholder="موضوع المسابقة (مثال: أجهزة جسم الإنسان، علوم الفضاء، بايثون...)"
-                    className="w-full px-3 py-2 bg-white border border-amber-200 rounded-xl text-xs text-slate-800 focus:outline-amber-600"
-                  />
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="p-2 rounded-xl bg-rose-100 dark:bg-rose-900/60 text-rose-600 dark:text-rose-300">
+                        <Radio className="w-4 h-4" />
+                      </span>
+                      <span className="text-[10px] font-black bg-rose-500 text-white px-2 py-0.5 rounded-full">
+                        مباشرة متزامنة
+                      </span>
+                    </div>
+                    <h4 className="font-black text-sm">مسابقة مباشرة</h4>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                      موعد محدد (مثلاً الساعة 3:00) وتنتهي بانتهاء مدة الامتحان المحددة فوراً.
+                    </p>
+                  </div>
+                  <div className="text-[10px] font-bold text-rose-700 dark:text-rose-400 flex items-center gap-1">
+                    <Timer className="w-3.5 h-3.5" />
+                    <span>مدة محددة للامتحان</span>
+                  </div>
                 </div>
-                <div>
-                  <select
-                    value={aiDifficulty}
-                    onChange={(e) => setAiDifficulty(e.target.value as any)}
-                    className="w-full px-3 py-2 bg-white border border-amber-200 rounded-xl text-xs text-slate-800 focus:outline-amber-600"
-                  >
-                    <option value="سهل">مستوى سهل</option>
-                    <option value="متوسط">مستوى متوسط</option>
-                    <option value="متقدم">مستوى متقدم</option>
-                  </select>
+
+                {/* 2. Windowed Competition */}
+                <div
+                  onClick={() => handleCompetitionTypeSelect('windowed')}
+                  className={`p-4 rounded-2xl border-2 transition-all cursor-pointer relative flex flex-col justify-between space-y-3 ${
+                    competitionType === 'windowed'
+                      ? 'border-teal-600 bg-teal-50/40 dark:bg-teal-950/30 text-teal-950 dark:text-teal-200 shadow-sm'
+                      : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 bg-white dark:bg-slate-800/60'
+                  }`}
+                >
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="p-2 rounded-xl bg-teal-100 dark:bg-teal-900/60 text-teal-600 dark:text-teal-300">
+                        <Calendar className="w-4 h-4" />
+                      </span>
+                      <span className="text-[10px] font-black bg-teal-600 text-white px-2 py-0.5 rounded-full">
+                        نافذة زمنية
+                      </span>
+                    </div>
+                    <h4 className="font-black text-sm">مسابقة بمدة محددة</h4>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                      تفتح في ساعة وتغلق في موعد محدد (ساعات أو أيام). محاولة واحدة وإعلان النتائج عند الإغلاق.
+                    </p>
+                  </div>
+                  <div className="text-[10px] font-bold text-teal-700 dark:text-teal-400 flex items-center gap-1">
+                    <Lock className="w-3.5 h-3.5" />
+                    <span>محاولة واحدة + حجب الحلول</span>
+                  </div>
                 </div>
-                <div>
-                  <button
-                    type="button"
-                    disabled={isGeneratingAI}
-                    onClick={handleGenerateAI}
-                    className="w-full py-2 bg-amber-600 hover:bg-amber-500 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm cursor-pointer disabled:opacity-50"
-                  >
+
+                {/* 3. Open Practice */}
+                <div
+                  onClick={() => handleCompetitionTypeSelect('open')}
+                  className={`p-4 rounded-2xl border-2 transition-all cursor-pointer relative flex flex-col justify-between space-y-3 ${
+                    competitionType === 'open'
+                      ? 'border-amber-500 bg-amber-50/40 dark:bg-amber-950/30 text-amber-950 dark:text-amber-200 shadow-sm'
+                      : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 bg-white dark:bg-slate-800/60'
+                  }`}
+                >
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="p-2 rounded-xl bg-amber-100 dark:bg-amber-900/60 text-amber-600 dark:text-amber-300">
+                        <Zap className="w-4 h-4" />
+                      </span>
+                      <span className="text-[10px] font-black bg-amber-600 text-white px-2 py-0.5 rounded-full">
+                        تدريب مفتوح
+                      </span>
+                    </div>
+                    <h4 className="font-black text-sm">مسابقة مفتوحة</h4>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                      متاحة باستمرار بدون قيود، للتجربة والتعلم الذاتي مع إظهار الإجابات الفورية.
+                    </p>
+                  </div>
+                  <div className="text-[10px] font-bold text-amber-700 dark:text-amber-400 flex items-center gap-1">
                     <Sparkles className="w-3.5 h-3.5" />
-                    <span>{isGeneratingAI ? 'جاري التوليد...' : 'توليد الأسئلة الآن'}</span>
-                  </button>
+                    <span>نتائج فورية وشهادات سريعة</span>
+                  </div>
                 </div>
               </div>
             </div>
-          )}
 
-          {/* Section 2: General Details */}
-          <div className="space-y-3">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {/* Basic Info Fields */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-bold text-slate-800 mb-1">
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
                   اسم المسابقة *
                 </label>
                 <input
@@ -586,423 +509,466 @@ export const CompetitionBuilderModal: React.FC<CompetitionBuilderModalProps> = (
                   required
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="مثال: أولمبياد الرياضيات والمنطق الرقمي"
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:outline-teal-600 focus:bg-white"
+                  placeholder="مثال: أولمبياد العلوم للمرحلة المتوسطة"
+                  className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs sm:text-sm font-bold focus:outline-none focus:ring-2 focus:ring-teal-600/30"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-800 mb-1">
-                  الرابط المباشر للمسابقة (Slug)
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                  المدرسة أو الجهة المنظمة
                 </label>
                 <input
                   type="text"
-                  required
-                  value={webSlug}
-                  onChange={(e) => setWebSlug(e.target.value)}
-                  placeholder="مثال: math-olympiad-2026"
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-800 focus:outline-teal-600 focus:bg-white"
+                  value={currentTeacher?.school || 'مدارس التعليم العام'}
+                  readOnly
+                  className="w-full px-3.5 py-2.5 bg-slate-100 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl text-xs sm:text-sm text-slate-500 font-bold"
                 />
               </div>
             </div>
 
-            <div>
-              <label className="block text-xs font-bold text-slate-800 mb-1">
-                الوصف والملاحظات التوجيهية للطلاب
-              </label>
-              <textarea
-                rows={2}
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="اكتب نبذة موجزة ومحفزة تظهر للطلاب عند فتح رابط المسابقة..."
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-teal-600 focus:bg-white"
-              />
-            </div>
+            {/* Time Controls */}
+            <div className="bg-slate-50 dark:bg-slate-800/60 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-4">
+              <h4 className="text-xs font-black text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                <Clock className="w-4 h-4 text-teal-600" />
+                <span>إعدادات التوقيت والمواعيد</span>
+              </h4>
 
-            {/* Dynamic Timing & Restrictions Section */}
-            <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-3">
-              <div className="flex items-center justify-between border-b border-slate-200 pb-2">
-                <div className="flex items-center gap-2">
-                  <Clock className="w-4 h-4 text-teal-600" />
-                  <span className="text-xs font-black text-slate-900">
-                    {competitionType === 'live' ? 'إعدادات توقيت المسابقة المباشرة والمدة' :
-                     competitionType === 'windowed' ? 'إعدادات فترة فتح وإغلاق المسابقة ومدة الاختبار' :
-                     'إعدادات التوقيت العام للمسابقة'}
-                  </span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-[11px] font-bold text-slate-600 dark:text-slate-400 block mb-1">
+                    {competitionType === 'live' ? 'موعد بدء المسابقة المباشرة' : 'تاريخ ووقت فتح المسابقة'}
+                  </label>
+                  <input
+                    type="datetime-local"
+                    value={startTime}
+                    onChange={(e) => setStartTime(e.target.value)}
+                    className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold"
+                  />
                 </div>
-                <span className="text-[11px] font-bold text-slate-500">
-                  {competitionType === 'live' ? 'مباشرة في توقيت محدد' : competitionType === 'windowed' ? 'نافذة زمنية محددة' : 'مفتوحة'}
-                </span>
+
+                <div>
+                  <label className="text-[11px] font-bold text-slate-600 dark:text-slate-400 block mb-1">
+                    {competitionType === 'live' ? 'موعد إغلاق المسابقة' : 'تاريخ ووقت انتهاء المسابقة'}
+                  </label>
+                  <input
+                    type="datetime-local"
+                    value={endTime}
+                    onChange={(e) => setEndTime(e.target.value)}
+                    className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold"
+                  />
+                </div>
               </div>
 
               {competitionType === 'live' && (
-                <div className="space-y-3">
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div>
-                      <label className="block text-xs font-bold text-slate-800 mb-1">
-                        موعد انطلاق المسابقة المباشرة *
-                      </label>
-                      <input
-                        type="datetime-local"
-                        required
-                        value={startTime}
-                        onChange={(e) => {
-                          setStartTime(e.target.value);
-                          const startMs = new Date(e.target.value).getTime();
-                          const endMs = startMs + (examDurationMinutes || 20) * 60 * 1000;
-                          const offset = new Date().getTimezoneOffset() * 60000;
-                          setEndTime(new Date(endMs - offset).toISOString().slice(0, 16));
-                        }}
-                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-rose-500"
-                      />
-                      <span className="text-[10px] text-slate-500 mt-1 block">مثال: اليوم الساعة 3:00 عصراً</span>
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-bold text-slate-800 mb-1">
-                        مدة الامتحان الكلية (بالدقائق) *
-                      </label>
-                      <input
-                        type="number"
-                        min={5}
-                        max={180}
-                        required
-                        value={examDurationMinutes}
-                        onChange={(e) => {
-                          const mins = Number(e.target.value);
-                          setExamDurationMinutes(mins);
-                          const startMs = new Date(startTime).getTime();
-                          const endMs = startMs + mins * 60 * 1000;
-                          const offset = new Date().getTimezoneOffset() * 60000;
-                          setEndTime(new Date(endMs - offset).toISOString().slice(0, 16));
-                        }}
-                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 text-center focus:outline-rose-500"
-                      />
-                      <span className="text-[10px] text-slate-500 mt-1 block">تنتهي المسابقة تلقائياً فور انقضاء هذه المدة</span>
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-bold text-slate-800 mb-1">
-                        مدة كل سؤال (ثواني)
-                      </label>
-                      <input
-                        type="number"
-                        min={10}
-                        max={120}
-                        value={questionDuration}
-                        onChange={(e) => setQuestionDuration(Number(e.target.value))}
-                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 text-center"
-                      />
-                      <span className="text-[10px] text-slate-500 mt-1 block">عداد الثواني المخصص لكل سؤال</span>
-                    </div>
-                  </div>
-
-                  <div className="p-3 bg-rose-50/70 border border-rose-200 rounded-xl flex items-start gap-2.5 text-xs text-rose-900">
-                    <Radio className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
-                    <div>
-                      <span className="font-bold">نظام المسابقة المباشرة مفعل:</span>
-                      <p className="text-[11px] text-rose-800 mt-0.5">
-                        تبدأ المسابقة الساعة <strong>{new Date(startTime).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' })}</strong> وتنتهي وتغلق تماماً بعد <strong>{examDurationMinutes} دقيقة</strong>. يسمح للطالب بمحاولة واحدة فقط، وتُعلن النتائج والإجابات الصحيحة للجميع فور انتهاء وقت المسابقة.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {competitionType === 'windowed' && (
-                <div className="space-y-3">
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div>
-                      <label className="block text-xs font-bold text-slate-800 mb-1">
-                        تاريخ ووقت فتح المسابقة *
-                      </label>
-                      <input
-                        type="datetime-local"
-                        required
-                        value={startTime}
-                        onChange={(e) => setStartTime(e.target.value)}
-                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-teal-600"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-bold text-slate-800 mb-1">
-                        تاريخ ووقت إغلاق المسابقة النهائي *
-                      </label>
-                      <input
-                        type="datetime-local"
-                        required
-                        value={endTime}
-                        onChange={(e) => setEndTime(e.target.value)}
-                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-teal-600"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-bold text-slate-800 mb-1">
-                        مهلة الطالب عند البدء (دقائق)
-                      </label>
-                      <input
-                        type="number"
-                        min={5}
-                        max={180}
-                        value={examDurationMinutes}
-                        onChange={(e) => setExamDurationMinutes(Number(e.target.value))}
-                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 text-center"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="p-3 bg-teal-50 border border-teal-200 rounded-xl flex items-start gap-2.5 text-xs text-teal-900">
-                    <CheckCircle2 className="w-4 h-4 text-teal-600 shrink-0 mt-0.5" />
-                    <div>
-                      <span className="font-bold">ضوابط المسابقة المحددة بوقت:</span>
-                      <p className="text-[11px] text-teal-800 mt-0.5">
-                        يسمح لكل طالب بمحاولة واحدة فقط أثناء فترة فتح المسابقة. لن تظهر الإجابات الصحيحة وشروحاتها للطلاب إلا بعد انتهاء تاريخ المسابقة رسمياً ({new Date(endTime).toLocaleDateString('ar-SA')}).
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {competitionType === 'open' && (
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div>
-                    <label className="block text-xs font-bold text-slate-800 mb-1">
-                      مدة السؤال (ثواني)
-                    </label>
-                    <input
-                      type="number"
-                      min={10}
-                      max={120}
-                      value={questionDuration}
-                      onChange={(e) => setQuestionDuration(Number(e.target.value))}
-                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 text-center"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-slate-800 mb-1">
-                      مهلة المحاولة (دقائق)
-                    </label>
+                <div className="pt-2">
+                  <label className="text-[11px] font-bold text-slate-600 dark:text-slate-400 block mb-1">
+                    مدة الامتحان الإجمالية للطالب (بالدقائق):
+                  </label>
+                  <div className="flex items-center gap-3">
                     <input
                       type="number"
                       min={5}
-                      max={120}
+                      max={180}
                       value={examDurationMinutes}
                       onChange={(e) => setExamDurationMinutes(Number(e.target.value))}
-                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 text-center"
+                      className="w-28 px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-black text-center"
                     />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-slate-800 mb-1">
-                      عدد الفائزين باللوحة
-                    </label>
-                    <input
-                      type="number"
-                      min={1}
-                      max={20}
-                      value={winnersCount}
-                      onChange={(e) => setWinnersCount(Number(e.target.value))}
-                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 text-center"
-                    />
+                    <span className="text-xs text-slate-500">دقيقة (تغلق المسابقة فوراً بعد انتهاء هذه المدة)</span>
                   </div>
                 </div>
               )}
-
-              {/* Guarantees checkboxes */}
-              <div className="pt-2 border-t border-slate-200 grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <label className="flex items-center gap-2 p-2.5 bg-white border border-slate-200 rounded-xl cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={singleAttempt}
-                    onChange={(e) => setSingleAttempt(e.target.checked)}
-                    className="w-4 h-4 text-teal-600 rounded accent-teal-600 cursor-pointer"
-                  />
-                  <div>
-                    <span className="text-xs font-bold text-slate-800 block">السماح للطالب بمحاولة واحدة فقط</span>
-                    <span className="text-[10px] text-slate-500">منع إعادة الاختبار لنفس المتسابق</span>
-                  </div>
-                </label>
-
-                <label className="flex items-center gap-2 p-2.5 bg-white border border-slate-200 rounded-xl cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={hideAnswersUntilEnd}
-                    onChange={(e) => setHideAnswersUntilEnd(e.target.checked)}
-                    className="w-4 h-4 text-teal-600 rounded accent-teal-600 cursor-pointer"
-                  />
-                  <div>
-                    <span className="text-xs font-bold text-slate-800 block">حجب الإجابات الصحيحة حتى انتهاء المسابقة</span>
-                    <span className="text-[10px] text-slate-500">إعلان النتائج فقط عند انتهاء المسابقة رسمياً</span>
-                  </div>
-                </label>
-              </div>
             </div>
 
-            {/* Reward & Certificate Toggle */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  عنوان التكريم أو الجائزة
-                </label>
+            {/* Strict Exam Rules Toggles */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+              <label className="flex items-center gap-2 p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/40 cursor-pointer">
                 <input
-                  type="text"
-                  value={rewardType}
-                  onChange={(e) => setRewardType(e.target.value)}
-                  placeholder="مثال: وسام التفوق + شهادة شكر معتمدة"
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800"
+                  type="checkbox"
+                  checked={singleAttempt}
+                  onChange={(e) => setSingleAttempt(e.target.checked)}
+                  className="rounded text-teal-600 w-4 h-4"
                 />
-              </div>
-
-              <div className="flex items-center justify-between p-3 bg-slate-50 border border-slate-200 rounded-xl">
                 <div>
-                  <div className="text-xs font-bold text-slate-800">تفعيل شهادة التقدير الفورية</div>
-                  <div className="text-[11px] text-slate-500">تمكين الطالب من تحميل شهادته فور الانتهاء</div>
+                  <span className="text-xs font-bold block">محاولة واحدة للطالب</span>
+                  <span className="text-[10px] text-slate-400">منع تكرار المحاولات لنفس الطالب</span>
                 </div>
+              </label>
+
+              <label className="flex items-center gap-2 p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/40 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={hideAnswersUntilEnd}
+                  onChange={(e) => setHideAnswersUntilEnd(e.target.checked)}
+                  className="rounded text-teal-600 w-4 h-4"
+                />
+                <div>
+                  <span className="text-xs font-bold block">حجب الإجابات الصحيحة</span>
+                  <span className="text-[10px] text-slate-400">تظهر فقط عند نهاية المسابقة</span>
+                </div>
+              </label>
+
+              <label className="flex items-center gap-2 p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/40 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={certificateEnabled}
                   onChange={(e) => setCertificateEnabled(e.target.checked)}
-                  className="w-5 h-5 text-teal-600 rounded cursor-pointer accent-teal-600"
+                  className="rounded text-teal-600 w-4 h-4"
                 />
-              </div>
+                <div>
+                  <span className="text-xs font-bold block">شهادة إلكترونية معتمدة</span>
+                  <span className="text-[10px] text-slate-400">تمنح للطالب المتفوق برمز فحص QR</span>
+                </div>
+              </label>
             </div>
+
           </div>
+        )}
 
-          {/* Section 3: Questions List (One click review & edit) */}
-          <div className="pt-4 border-t border-slate-200">
-            <div className="flex items-center justify-between mb-4">
+        {/* ============================================================== */}
+        {/* STEP 2: QUESTIONS & AI GENERATION                             */}
+        {/* ============================================================== */}
+        {currentStep === 2 && (
+          <div className="py-6 space-y-6 animate-in fade-in duration-150">
+            
+            {/* Tabs: AI Smart Generator vs Manual Question Builder */}
+            <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
               <div className="flex items-center gap-2">
-                <span className="font-extrabold text-sm text-slate-900">
-                  قائمة الأسئلة ({questions.length})
-                </span>
-                {questionType === 'ai' && (
-                  <span className="text-[11px] bg-amber-100 text-amber-900 px-2 py-0.5 rounded-full font-bold">
-                    ✓ راجع وعدّل الإجابات قبل النشر
-                  </span>
-                )}
+                <button
+                  type="button"
+                  onClick={() => setActiveQuestionTab('ai')}
+                  className={`px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 ${
+                    activeQuestionTab === 'ai'
+                      ? 'bg-teal-700 text-white shadow-xs'
+                      : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                  }`}
+                >
+                  <Bot className="w-4 h-4 text-amber-300" />
+                  <span>توليد ذكي بالذكاء الاصطناعي (Gemini)</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveQuestionTab('manual')}
+                  className={`px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 ${
+                    activeQuestionTab === 'manual'
+                      ? 'bg-teal-700 text-white shadow-xs'
+                      : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                  }`}
+                >
+                  <Edit3 className="w-4 h-4" />
+                  <span>إدخال الأسئلة يدوياً</span>
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={handleAddQuestion}
-                className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 cursor-pointer transition-colors"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>إضافة سؤال جديد</span>
-              </button>
+
+              <span className="text-xs font-bold text-slate-500">
+                إجمالي الأسئلة المضافة: <strong className="text-teal-700 dark:text-teal-400 font-black">{questions.length}</strong>
+              </span>
             </div>
 
-            <div className="space-y-4 max-h-[380px] overflow-y-auto pr-1">
-              {questions.map((q, qIndex) => (
-                <div
-                  key={q.id || qIndex}
-                  className="p-4 rounded-2xl border border-slate-200 bg-slate-50/70 hover:bg-white hover:border-slate-300 transition-all space-y-3"
+            {/* AI Generator Panel */}
+            {activeQuestionTab === 'ai' && (
+              <div className="bg-gradient-to-br from-teal-50/60 to-emerald-50/40 dark:from-slate-800/80 dark:to-teal-950/40 border border-teal-200/80 dark:border-teal-800/80 p-5 rounded-3xl space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-5 h-5 text-amber-500 animate-spin-slow" />
+                    <h3 className="text-sm font-black text-slate-900 dark:text-white">
+                      مساعد الذكاء الاصطناعي لإنشاء أسئلة المناهج
+                    </h3>
+                  </div>
+                  <span className="text-[11px] font-bold text-teal-800 dark:text-teal-300 bg-teal-100 dark:bg-teal-900/60 px-2.5 py-0.5 rounded-full">
+                    نموذج تعليمي متقدم
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                  <div className="sm:col-span-2">
+                    <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                      موضوع المسابقة أو الدرس:
+                    </label>
+                    <input
+                      type="text"
+                      value={aiTopic}
+                      onChange={(e) => setAiTopic(e.target.value)}
+                      placeholder="مثال: دورة الماء في الطبيعة، أو قواعد كان وأخواتها"
+                      className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-teal-200 dark:border-teal-800 rounded-xl text-xs font-bold"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                      التصنيف:
+                    </label>
+                    <select
+                      value={aiCategory}
+                      onChange={(e) => setAiCategory(e.target.value)}
+                      className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-teal-200 dark:border-teal-800 rounded-xl text-xs font-bold"
+                    >
+                      <option value="العلوم العامة">العلوم العامة</option>
+                      <option value="الرياضيات">الرياضيات</option>
+                      <option value="اللغة العربية">اللغة العربية</option>
+                      <option value="التقنية والذكاء الاصطناعي">التقنية والذكاء الاصطناعي</option>
+                      <option value="الثقافة الوطنية والتاريخ">الثقافة الوطنية والتاريخ</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                      عدد الأسئلة:
+                    </label>
+                    <select
+                      value={aiCount}
+                      onChange={(e) => setAiCount(Number(e.target.value))}
+                      className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-teal-200 dark:border-teal-800 rounded-xl text-xs font-bold"
+                    >
+                      <option value={3}>3 أسئلة</option>
+                      <option value={5}>5 أسئلة (موصى به)</option>
+                      <option value={10}>10 أسئلة</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Quick Topic Chips */}
+                <div className="flex items-center gap-1.5 flex-wrap text-xs pt-1">
+                  <span className="text-[11px] text-slate-500 font-bold">مواضيع مقترحة:</span>
+                  {[
+                    'الذكاء الاصطناعي ورؤية 2030',
+                    'الجهاز الدوري في جسم الإنسان',
+                    'المعادلات الخطية والهندسة',
+                    'كان وأخواتها في النحو',
+                    'تاريخ المملكة وتأسيسها'
+                  ].map((topic) => (
+                    <button
+                      key={topic}
+                      type="button"
+                      onClick={() => setAiTopic(topic)}
+                      className="px-2.5 py-1 bg-white dark:bg-slate-800 border border-teal-200 dark:border-teal-800 rounded-lg text-[10px] font-bold text-teal-800 dark:text-teal-300 hover:bg-teal-50 cursor-pointer transition-colors"
+                    >
+                      {topic}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    disabled={isGeneratingAI}
+                    onClick={handleGenerateAI}
+                    className="w-full py-2.5 bg-gradient-to-r from-teal-700 to-emerald-700 hover:from-teal-800 hover:to-emerald-800 text-white rounded-xl text-xs font-black shadow-md cursor-pointer transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                  >
+                    <Sparkles className="w-4 h-4 text-amber-300" />
+                    <span>{isGeneratingAI ? 'جارٍ توليد الأسئلة والخيارات والحلول...' : 'توليد الأسئلة فورياً بالذكاء الاصطناعي'}</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Questions List & Editor */}
+            <div className="space-y-4 max-h-[420px] overflow-y-auto pr-1">
+              {questions.map((q, qIdx) => (
+                <div 
+                  key={q.id || qIdx}
+                  className="bg-white dark:bg-slate-800/80 rounded-2xl border border-slate-200 dark:border-slate-700 p-4 space-y-3 relative shadow-2xs"
                 >
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-xs font-black text-slate-700 bg-slate-200/80 px-2.5 py-1 rounded-lg">
-                      السؤال #{qIndex + 1}
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-black text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                      <span className="w-5 h-5 rounded-full bg-teal-100 dark:bg-teal-900 text-teal-800 dark:text-teal-200 flex items-center justify-center text-[10px]">
+                        {qIdx + 1}
+                      </span>
+                      <span>السؤال {qIdx + 1}</span>
                     </span>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="number"
-                        min={10}
-                        max={120}
-                        value={q.duration || questionDuration}
-                        onChange={(e) => handleUpdateQuestion(qIndex, 'duration', Number(e.target.value))}
-                        title="وقت السؤال بالثواني"
-                        className="w-16 px-2 py-1 bg-white border border-slate-200 rounded-lg text-xs text-center font-bold"
-                      />
-                      <span className="text-[11px] text-slate-500">ثانية</span>
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveQuestion(qIndex)}
-                        className="text-slate-400 hover:text-rose-600 p-1 cursor-pointer"
-                        title="حذف السؤال"
+
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveQuestion(qIdx)}
+                      className="text-rose-500 hover:text-rose-700 dark:hover:text-rose-400 p-1 cursor-pointer transition-colors"
+                      title="حذف هذا السؤال"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  {/* Question Text */}
+                  <input
+                    type="text"
+                    value={q.text}
+                    onChange={(e) => handleUpdateQuestion(qIdx, 'text', e.target.value)}
+                    placeholder="اكتب نص السؤال هنا..."
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold"
+                  />
+
+                  {/* 4 Options with Radio */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                    {q.options.map((opt, optIdx) => (
+                      <div 
+                        key={optIdx}
+                        className={`flex items-center gap-2 p-2 rounded-xl border transition-all ${
+                          q.correctIndex === optIdx
+                            ? 'border-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/40'
+                            : 'border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/50'
+                        }`}
                       >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-
-                  <div>
-                    <input
-                      type="text"
-                      required
-                      value={q.text}
-                      onChange={(e) => handleUpdateQuestion(qIndex, 'text', e.target.value)}
-                      placeholder="اكتب نص السؤال هنا..."
-                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:outline-teal-600"
-                    />
-                  </div>
-
-                  {/* 4 Options with Radio to select correct answer */}
-                  <div className="space-y-1.5">
-                    <div className="text-[11px] font-bold text-slate-600 mb-1">
-                      حدد الخيار الصحيح بالنقر على الدائرة:
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      {q.options.map((opt, optIndex) => (
-                        <div
-                          key={optIndex}
-                          className={`flex items-center gap-2 p-2 rounded-xl border transition-all ${
-                            q.correctIndex === optIndex
-                              ? 'bg-emerald-50 border-emerald-300 ring-1 ring-emerald-500/20'
-                              : 'bg-white border-slate-200'
-                          }`}
-                        >
-                          <input
-                            type="radio"
-                            name={`correct-${qIndex}`}
-                            checked={q.correctIndex === optIndex}
-                            onChange={() => handleUpdateQuestion(qIndex, 'correctIndex', optIndex)}
-                            className="w-4 h-4 text-emerald-600 accent-emerald-600 cursor-pointer"
-                          />
-                          <input
-                            type="text"
-                            required
-                            value={opt}
-                            onChange={(e) => handleUpdateOption(qIndex, optIndex, e.target.value)}
-                            placeholder={`الخيار ${optIndex + 1}`}
-                            className="w-full bg-transparent text-xs font-medium text-slate-800 focus:outline-none"
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Explanation */}
-                  <div>
-                    <input
-                      type="text"
-                      value={q.explanation || ''}
-                      onChange={(e) => handleUpdateQuestion(qIndex, 'explanation', e.target.value)}
-                      placeholder="تفسير الإجابة الصحيحة (يظهر للطالب بعد الإجابة كفائدة إثرائية)..."
-                      className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-[11px] text-slate-600 focus:outline-teal-600"
-                    />
+                        <input
+                          type="radio"
+                          name={`correct-${qIdx}`}
+                          checked={q.correctIndex === optIdx}
+                          onChange={() => handleUpdateQuestion(qIdx, 'correctIndex', optIdx)}
+                          className="text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                        />
+                        <input
+                          type="text"
+                          value={opt}
+                          onChange={(e) => handleUpdateOption(qIdx, optIdx, e.target.value)}
+                          placeholder={`الخيار ${optIdx + 1}`}
+                          className="flex-1 bg-transparent border-none text-xs font-bold focus:outline-none"
+                        />
+                        {q.correctIndex === optIdx && (
+                          <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400">
+                            صحيح ✓
+                          </span>
+                        )}
+                      </div>
+                    ))}
                   </div>
                 </div>
               ))}
-            </div>
-          </div>
 
-          {/* Form Actions */}
-          <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200">
+              <button
+                type="button"
+                onClick={handleAddQuestion}
+                className="w-full py-2.5 border-2 border-dashed border-slate-200 dark:border-slate-700 hover:border-teal-500 text-slate-600 dark:text-slate-400 hover:text-teal-700 rounded-2xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5"
+              >
+                <Plus className="w-4 h-4" />
+                <span>إضافة سؤال جديد يدوياً</span>
+              </button>
+            </div>
+
+          </div>
+        )}
+
+        {/* ============================================================== */}
+        {/* STEP 3: REVIEW & PUBLISH CONFIRMATION                          */}
+        {/* ============================================================== */}
+        {currentStep === 3 && (
+          <div className="py-6 space-y-6 animate-in fade-in duration-150">
+            
+            {/* Summary Card */}
+            <div className="bg-slate-50 dark:bg-slate-800/70 rounded-3xl border border-slate-200 dark:border-slate-700 p-6 space-y-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full ${
+                    competitionType === 'live' 
+                      ? 'bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300'
+                      : competitionType === 'windowed'
+                      ? 'bg-teal-100 dark:bg-teal-950 text-teal-700 dark:text-teal-300'
+                      : 'bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300'
+                  }`}>
+                    {competitionType === 'live' ? '🔴 مسابقة مباشرة' : competitionType === 'windowed' ? '📅 مسابقة بنافذة زمنية' : '⚡ تدريب مفتوح'}
+                  </span>
+                  <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white mt-1">
+                    {name}
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    الرابط المباشر للمسابقة: <code className="font-mono text-teal-700 dark:text-teal-400 font-bold">?quiz={webSlug}</code>
+                  </p>
+                </div>
+
+                <div className="text-center p-3 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800">
+                  <span className="text-xl font-black text-teal-700 dark:text-teal-400 block">{questions.length}</span>
+                  <span className="text-[10px] text-slate-400 font-bold">أسئلة</span>
+                </div>
+              </div>
+
+              {/* Rules Checklist */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                <div className="flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-slate-300">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                  <span>الموعد: {new Date(startTime).toLocaleDateString('ar-SA')} ({new Date(startTime).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' })})</span>
+                </div>
+
+                <div className="flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-slate-300">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                  <span>
+                    {competitionType === 'live' 
+                      ? `مدة الامتحان المباشر: ${examDurationMinutes} دقيقة` 
+                      : `نهاية الموعد: ${new Date(endTime).toLocaleDateString('ar-SA')}`}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-slate-300">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                  <span>{singleAttempt ? 'محاولة واحدة فقط لكل طالب' : 'محاولات متعددة مسموحة'}</span>
+                </div>
+
+                <div className="flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-slate-300">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                  <span>{certificateEnabled ? 'شهادة إلكترونية معتمدة للمتفوقين' : 'بدون شهادات'}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Questions Quick Preview Accordion */}
+            <div className="space-y-2">
+              <span className="text-xs font-black text-slate-800 dark:text-slate-200 block">
+                معاينة بنك الأسئلة قبل النشر ({questions.length}):
+              </span>
+              <div className="max-h-48 overflow-y-auto space-y-2 pr-1">
+                {questions.map((q, idx) => (
+                  <div key={idx} className="p-3 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 text-xs">
+                    <span className="font-bold text-slate-900 dark:text-white">س{idx + 1}: {q.text}</span>
+                    <span className="block text-[11px] text-emerald-600 dark:text-emerald-400 mt-1 font-bold">
+                      الإجابة الصحيحة: {q.options[q.correctIndex]}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+          </div>
+        )}
+
+        {/* Wizard Footer Controls */}
+        <div className="flex items-center justify-between border-t border-slate-100 dark:border-slate-800 pt-5 mt-2">
+          {currentStep > 1 ? (
+            <button
+              type="button"
+              onClick={() => setCurrentStep((prev) => (prev - 1) as any)}
+              className="px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 font-bold text-xs cursor-pointer flex items-center gap-2"
+            >
+              <ArrowRight className="w-4 h-4" />
+              <span>الخطوة السابقة</span>
+            </button>
+          ) : (
             <button
               type="button"
               onClick={onClose}
-              className="px-5 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 cursor-pointer transition-colors"
+              className="px-5 py-2.5 rounded-xl text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 font-bold text-xs cursor-pointer"
             >
               إلغاء
             </button>
+          )}
+
+          {currentStep < 3 ? (
             <button
-              type="submit"
-              className="px-7 py-2.5 rounded-xl bg-teal-700 hover:bg-teal-800 text-white text-xs font-bold shadow-md cursor-pointer transition-all flex items-center gap-2"
+              type="button"
+              onClick={currentStep === 1 ? handleNextFromStep1 : handleNextFromStep2}
+              className="px-6 py-2.5 bg-teal-700 hover:bg-teal-800 text-white rounded-xl font-bold text-xs cursor-pointer shadow-md flex items-center gap-2"
             >
-              <CheckCircle2 className="w-4 h-4" />
-              <span>{editingCompetition ? 'حفظ التعديلات' : 'نشر المسابقة الآن'}</span>
+              <span>الخطوة التالية</span>
+              <ArrowLeft className="w-4 h-4" />
             </button>
-          </div>
-        </form>
+          ) : (
+            <button
+              type="button"
+              onClick={handleFinalSubmit}
+              className="px-8 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white rounded-xl font-black text-xs cursor-pointer shadow-lg shadow-teal-700/20 flex items-center gap-2"
+            >
+              <Check className="w-4 h-4" />
+              <span>حفظ ونشر المسابقة الآن</span>
+            </button>
+          )}
+        </div>
+
       </div>
     </div>
   );

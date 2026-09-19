@@ -20,7 +20,11 @@ import {
   AlertCircle,
   Eye,
   KeyRound,
-  FileText
+  FileText,
+  BarChart3,
+  TrendingUp,
+  Target,
+  Zap
 } from 'lucide-react';
 import { Competition, AccessCode, ParticipantResult, TeamResult, ManualCertificate } from '../types';
 import { StorageService } from '../services/storageService';
@@ -39,7 +43,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
   onLogout,
   onOpenStudentView,
 }) => {
-  const [activeTab, setActiveTab] = useState<'my_competitions' | 'certificates' | 'results'>('my_competitions');
+  const [activeTab, setActiveTab] = useState<'my_competitions' | 'certificates' | 'results' | 'analytics'>('my_competitions');
   
   // Competitions state
   const [myCompetitions, setMyCompetitions] = useState<Competition[]>([]);
@@ -163,6 +167,24 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
 
   const selectedCompObj = myCompetitions.find(c => c.id === selectedCompForResults);
 
+  // Overall analytics across all teacher competitions
+  const allTeacherResults = myCompetitions.flatMap(c => StorageService.getCompetitionResults(c.id));
+  const totalParticipants = allTeacherResults.length;
+  const avgScore = totalParticipants > 0 ? Math.round(allTeacherResults.reduce((sum, r) => sum + r.score, 0) / totalParticipants) : 0;
+  const topScore = totalParticipants > 0 ? Math.max(...allTeacherResults.map(r => r.score)) : 0;
+  const totalCertificatesIssued = allTeacherResults.length + manualCertificates.length;
+
+  const excellentCount = allTeacherResults.filter(r => (r.correctAnswers / (r.totalQuestions || 1)) >= 0.85).length;
+  const veryGoodCount = allTeacherResults.filter(r => {
+    const ratio = r.correctAnswers / (r.totalQuestions || 1);
+    return ratio >= 0.70 && ratio < 0.85;
+  }).length;
+  const goodCount = allTeacherResults.filter(r => {
+    const ratio = r.correctAnswers / (r.totalQuestions || 1);
+    return ratio >= 0.50 && ratio < 0.70;
+  }).length;
+  const needsImprovementCount = allTeacherResults.filter(r => (r.correctAnswers / (r.totalQuestions || 1)) < 0.50).length;
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6" dir="rtl">
       
@@ -211,13 +233,13 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
       </div>
 
       {/* Tabs Menu */}
-      <div className="flex items-center gap-2 border-b border-slate-200 pb-2 overflow-x-auto">
+      <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-2 overflow-x-auto">
         <button
           onClick={() => setActiveTab('my_competitions')}
           className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
             activeTab === 'my_competitions'
-              ? 'bg-slate-900 text-white shadow-xs'
-              : 'text-slate-600 hover:bg-slate-100'
+              ? 'bg-slate-900 dark:bg-teal-600 text-white shadow-xs'
+              : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
           }`}
         >
           <Trophy className="w-4 h-4 text-amber-400" />
@@ -228,8 +250,8 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
           onClick={() => setActiveTab('certificates')}
           className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
             activeTab === 'certificates'
-              ? 'bg-slate-900 text-white shadow-xs'
-              : 'text-slate-600 hover:bg-slate-100'
+              ? 'bg-slate-900 dark:bg-teal-600 text-white shadow-xs'
+              : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
           }`}
         >
           <Award className="w-4 h-4 text-amber-500" />
@@ -240,12 +262,24 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
           onClick={() => setActiveTab('results')}
           className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
             activeTab === 'results'
-              ? 'bg-slate-900 text-white shadow-xs'
-              : 'text-slate-600 hover:bg-slate-100'
+              ? 'bg-slate-900 dark:bg-teal-600 text-white shadow-xs'
+              : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
           }`}
         >
           <FileText className="w-4 h-4 text-teal-400" />
           <span>النتائج والتقارير</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('analytics')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+            activeTab === 'analytics'
+              ? 'bg-slate-900 dark:bg-teal-600 text-white shadow-xs'
+              : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+          }`}
+        >
+          <BarChart3 className="w-4 h-4 text-emerald-400" />
+          <span>الإحصائيات والتحليلات</span>
         </button>
       </div>
 
@@ -729,7 +763,269 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
         </div>
       )}
 
-      {/* Modals */}
+      {/* TAB 4: Visual Analytics & Insights */}
+      {activeTab === 'analytics' && (
+        <div className="space-y-6">
+          {/* Top High-level Metric Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-5 shadow-xs relative overflow-hidden">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-500 dark:text-slate-400">إجمالي مشاركات الطلاب</span>
+                <div className="w-9 h-9 rounded-2xl bg-teal-50 dark:bg-teal-950/50 text-teal-600 dark:text-teal-400 flex items-center justify-center">
+                  <Users className="w-5 h-5" />
+                </div>
+              </div>
+              <div className="text-3xl font-black text-slate-900 dark:text-white mt-3">
+                {totalParticipants}
+              </div>
+              <p className="text-[11px] text-teal-600 dark:text-teal-400 mt-1 font-semibold flex items-center gap-1">
+                <TrendingUp className="w-3.5 h-3.5" />
+                <span>عبر {myCompetitions.length} مسابقة مفعّلة</span>
+              </p>
+            </div>
+
+            <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-5 shadow-xs relative overflow-hidden">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-500 dark:text-slate-400">متوسط الدرجات العام</span>
+                <div className="w-9 h-9 rounded-2xl bg-sky-50 dark:bg-sky-950/50 text-sky-600 dark:text-sky-400 flex items-center justify-center">
+                  <Target className="w-5 h-5" />
+                </div>
+              </div>
+              <div className="text-3xl font-black text-slate-900 dark:text-white mt-3">
+                {avgScore} <span className="text-sm font-bold text-slate-400">نقطة</span>
+              </div>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 font-medium">
+                معدل الاستيعاب والإتقان المعرفي
+              </p>
+            </div>
+
+            <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-5 shadow-xs relative overflow-hidden">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-500 dark:text-slate-400">أعلى درجة محققة</span>
+                <div className="w-9 h-9 rounded-2xl bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+                  <Trophy className="w-5 h-5" />
+                </div>
+              </div>
+              <div className="text-3xl font-black text-amber-600 dark:text-amber-400 mt-3">
+                {topScore}
+              </div>
+              <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-1 font-semibold flex items-center gap-1">
+                <span>⭐ الرقم القياسي الحالي</span>
+              </p>
+            </div>
+
+            <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-5 shadow-xs relative overflow-hidden">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-500 dark:text-slate-400">الشهادات الصادرة</span>
+                <div className="w-9 h-9 rounded-2xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+                  <Award className="w-5 h-5" />
+                </div>
+              </div>
+              <div className="text-3xl font-black text-slate-900 dark:text-white mt-3">
+                {totalCertificatesIssued}
+              </div>
+              <p className="text-[11px] text-emerald-600 dark:text-emerald-400 mt-1 font-semibold flex items-center gap-1">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                <span>شهادات معتمدة ورسمية</span>
+              </p>
+            </div>
+          </div>
+
+          {/* Performance Distribution & Mastery Bar */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-6 shadow-xs space-y-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
+                    <BarChart3 className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+                    <span>توزيع مستويات أداء الطلاب ومعدل الإتقان</span>
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    تصنيف الطلاب بناءً على نسبة الإجابات الصحيحة في جميع الاختبارات
+                  </p>
+                </div>
+              </div>
+
+              {totalParticipants === 0 ? (
+                <div className="py-12 text-center text-slate-400 text-xs">
+                  لا توجد بيانات كافية لعرض التوزيع حتى الآن. ستظهر المؤشرات فور بدء حل الطلاب للمسابقات.
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {/* Excellent */}
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between text-xs font-bold">
+                      <span className="text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5">
+                        <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block" />
+                        <span>متميز (85% فما فوق)</span>
+                      </span>
+                      <span className="text-slate-700 dark:text-slate-300">
+                        {excellentCount} طلاب ({Math.round((excellentCount / totalParticipants) * 100)}%)
+                      </span>
+                    </div>
+                    <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-3 overflow-hidden">
+                      <div 
+                        className="bg-emerald-500 h-full rounded-full transition-all duration-500" 
+                        style={{ width: `${(excellentCount / totalParticipants) * 100}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Very Good */}
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between text-xs font-bold">
+                      <span className="text-teal-700 dark:text-teal-400 flex items-center gap-1.5">
+                        <span className="w-2.5 h-2.5 rounded-full bg-teal-500 inline-block" />
+                        <span>جيد جداً (70% - 84%)</span>
+                      </span>
+                      <span className="text-slate-700 dark:text-slate-300">
+                        {veryGoodCount} طلاب ({Math.round((veryGoodCount / totalParticipants) * 100)}%)
+                      </span>
+                    </div>
+                    <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-3 overflow-hidden">
+                      <div 
+                        className="bg-teal-500 h-full rounded-full transition-all duration-500" 
+                        style={{ width: `${(veryGoodCount / totalParticipants) * 100}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Good */}
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between text-xs font-bold">
+                      <span className="text-amber-700 dark:text-amber-400 flex items-center gap-1.5">
+                        <span className="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block" />
+                        <span>جيد (50% - 69%)</span>
+                      </span>
+                      <span className="text-slate-700 dark:text-slate-300">
+                        {goodCount} طلاب ({Math.round((goodCount / totalParticipants) * 100)}%)
+                      </span>
+                    </div>
+                    <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-3 overflow-hidden">
+                      <div 
+                        className="bg-amber-500 h-full rounded-full transition-all duration-500" 
+                        style={{ width: `${(goodCount / totalParticipants) * 100}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Needs Support */}
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between text-xs font-bold">
+                      <span className="text-rose-700 dark:text-rose-400 flex items-center gap-1.5">
+                        <span className="w-2.5 h-2.5 rounded-full bg-rose-500 inline-block" />
+                        <span>بحاجة لمتابعة ودعم (أقل من 50%)</span>
+                      </span>
+                      <span className="text-slate-700 dark:text-slate-300">
+                        {needsImprovementCount} طلاب ({Math.round((needsImprovementCount / totalParticipants) * 100)}%)
+                      </span>
+                    </div>
+                    <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-3 overflow-hidden">
+                      <div 
+                        className="bg-rose-500 h-full rounded-full transition-all duration-500" 
+                        style={{ width: `${(needsImprovementCount / totalParticipants) * 100}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Hall of Fame / Top 3 Achievers */}
+            <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-6 shadow-xs space-y-4">
+              <h3 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
+                <Trophy className="w-4 h-4 text-amber-500" />
+                <span>لوحة الشرف لأفضل المتسابقين</span>
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                أعلى الطلاب إحرازاً للنقاط عبر جميع المسابقات المدرسية
+              </p>
+
+              {allTeacherResults.length === 0 ? (
+                <div className="py-10 text-center text-slate-400 text-xs">
+                  لا توجد نتائج مسجلة حتى الآن في لوحة الشرف.
+                </div>
+              ) : (
+                <div className="space-y-3 pt-2">
+                  {allTeacherResults.slice(0, 3).map((student, idx) => {
+                    const medals = ['🥇', '🥈', '🥉'];
+                    const medalColors = [
+                      'bg-amber-50 dark:bg-amber-950/40 border-amber-300 text-amber-900 dark:text-amber-300',
+                      'bg-slate-50 dark:bg-slate-800 border-slate-300 text-slate-800 dark:text-slate-200',
+                      'bg-amber-100/40 dark:bg-amber-950/20 border-amber-400/40 text-amber-950 dark:text-amber-400'
+                    ];
+                    return (
+                      <div 
+                        key={student.id + idx}
+                        className={`p-3 rounded-2xl border flex items-center justify-between ${medalColors[idx] || 'bg-slate-50'}`}
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <span className="text-xl">{medals[idx]}</span>
+                          <div>
+                            <div className="text-xs font-black text-slate-900 dark:text-white">{student.name}</div>
+                            <div className="text-[10px] text-slate-500 dark:text-slate-400">{student.school}</div>
+                          </div>
+                        </div>
+                        <div className="text-left font-mono">
+                          <div className="text-xs font-black text-emerald-600 dark:text-emerald-400">{student.score} نقطة</div>
+                          <div className="text-[10px] text-slate-400">{student.totalTimeSeconds.toFixed(1)}ث</div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Per-Competition Participation Breakdown Table */}
+          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-6 shadow-xs space-y-4">
+            <h3 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
+              <Zap className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+              <span>معدل التفاعل والمشاركة حسب المسابقة</span>
+            </h3>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-right text-xs">
+                <thead className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-bold">
+                  <tr>
+                    <th className="p-3">عنوان المسابقة</th>
+                    <th className="p-3">نوع المسابقة</th>
+                    <th className="p-3">عدد الأسئلة</th>
+                    <th className="p-3">المشاركون</th>
+                    <th className="p-3">متوسط الدرجات</th>
+                    <th className="p-3">الحالة</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {myCompetitions.map(comp => {
+                    const compResults = StorageService.getCompetitionResults(comp.id);
+                    const compAvg = compResults.length > 0 
+                      ? Math.round(compResults.reduce((s, r) => s + r.score, 0) / compResults.length) 
+                      : 0;
+                    return (
+                      <tr key={comp.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40">
+                        <td className="p-3 font-bold text-slate-900 dark:text-white">{comp.name}</td>
+                        <td className="p-3 text-slate-600 dark:text-slate-300">
+                          {comp.competitionType === 'live' ? '🔴 مباشرة' : comp.competitionType === 'windowed' ? '⏳ فترة محددة' : '🟢 مفتوحة'}
+                        </td>
+                        <td className="p-3 text-slate-600 dark:text-slate-300">{comp.questions.length} سؤال</td>
+                        <td className="p-3 font-bold text-teal-600 dark:text-teal-400">{compResults.length} طالب</td>
+                        <td className="p-3 font-black text-slate-800 dark:text-slate-200">{compAvg} نقطة</td>
+                        <td className="p-3">
+                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
+                            متاحة للطلاب
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
       <CompetitionBuilderModal
         isOpen={isBuilderOpen}
         onClose={() => {

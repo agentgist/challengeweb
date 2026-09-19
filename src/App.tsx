@@ -17,6 +17,21 @@ export default function App() {
   const [selectedQuizSlug, setSelectedQuizSlug] = useState<string>('');
   const [initialVerifyCode, setInitialVerifyCode] = useState<string>('');
   const [competitions, setCompetitions] = useState<Competition[]>([]);
+  const [darkMode, setDarkMode] = useState<boolean>(() => {
+    return localStorage.getItem('tanafas_dark_mode') === 'true';
+  });
+
+  // Apply dark mode class to root HTML element
+  useEffect(() => {
+    if (darkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+    localStorage.setItem('tanafas_dark_mode', darkMode ? 'true' : 'false');
+  }, [darkMode]);
+
+  const toggleDarkMode = () => setDarkMode(prev => !prev);
 
   // Load competitions and logged-in teacher
   const loadData = () => {
@@ -97,9 +112,9 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#FDFDFD] flex flex-col font-sans text-slate-900 selection:bg-teal-100 selection:text-teal-900" dir="rtl">
+    <div className="min-h-screen bg-slate-50/70 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-sans selection:bg-teal-500 selection:text-white bg-grid-pattern transition-colors" dir="rtl">
       
-      {/* Clean Minimal Navbar */}
+      {/* Clean Luxury Navbar */}
       <Navbar
         activePage={activePage}
         setActivePage={(page) => {
@@ -109,6 +124,8 @@ export default function App() {
         currentTeacher={currentTeacher}
         onOpenTeacherLogin={() => setIsTeacherModalOpen(true)}
         onLogoutTeacher={handleTeacherLogout}
+        darkMode={darkMode}
+        onToggleDarkMode={toggleDarkMode}
       />
 
       {/* Main Container */}
