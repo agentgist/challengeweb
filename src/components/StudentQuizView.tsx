@@ -266,7 +266,7 @@ export const StudentQuizView: React.FC<StudentQuizViewProps> = ({
 
   if (!competition) {
     return (
-      <div className="max-w-md mx-auto my-16 p-8 bg-white rounded-3xl border border-slate-200 text-center shadow-sm" dir="rtl">
+      <div className="quiz-page max-w-md mx-auto my-16 p-8 bg-white rounded-3xl border border-slate-200 text-center shadow-sm" dir="rtl">
         <Trophy className="w-12 h-12 text-slate-300 mx-auto mb-3" />
         <h2 className="text-base font-bold text-slate-800">المسابقة المطلوبة غير متاحة حالياً</h2>
         <p className="text-xs text-slate-500 mt-1 mb-5">تأكد من صحة الرابط أو عد للصفحة الرئيسية لتصفح المسابقات النشطة.</p>
@@ -285,11 +285,11 @@ export const StudentQuizView: React.FC<StudentQuizViewProps> = ({
   const progressPercent = Math.min(100, (timeLeft / duration) * 100);
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-6 sm:py-10" dir="rtl">
+    <div className="quiz-page max-w-4xl mx-auto px-4 py-6 sm:py-10" dir="rtl">
       
       {/* 1. WELCOME SCREEN (Direct Entry - No Login!) */}
       {stage === 'welcome' && (
-        <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-9 shadow-lg text-right space-y-6 animate-in fade-in">
+        <div className="quiz-panel bg-white rounded-[2rem] border border-slate-200 p-6 sm:p-9 shadow-lg text-right space-y-6 animate-in fade-in">
           
           <div className="flex items-center justify-between">
             <button
@@ -310,13 +310,13 @@ export const StudentQuizView: React.FC<StudentQuizViewProps> = ({
           </div>
 
           <div className="text-center space-y-2">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-teal-50 border border-teal-200 text-teal-800 text-[11px] font-bold">
-              <span>{competition.source === 'platform' ? '🏆 مسابقة منصة عامة' : '🎓 مسابقة معلم'}</span>
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-50 border border-cyan-200 text-cyan-800 text-[11px] font-bold">
+              <span>{competition.source === 'platform' ? 'مسابقة عامة' : 'مسابقة معلم'}</span>
               <span>•</span>
-              <span>{competition.participationType === 'team' ? '👥 فرق جماعية' : '👤 مشاركة فردية'}</span>
+              <span>{competition.participationType === 'team' ? 'فرق جماعية' : 'مشاركة فردية'}</span>
             </div>
 
-            <h1 className="text-xl sm:text-2xl font-black text-slate-900">
+            <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
               {competition.name}
             </h1>
             <p className="text-xs text-slate-600 max-w-md mx-auto leading-relaxed">
@@ -488,7 +488,7 @@ export const StudentQuizView: React.FC<StudentQuizViewProps> = ({
 
               <button
                 type="submit"
-                className="w-full py-3.5 bg-gradient-to-r from-teal-700 to-emerald-700 hover:from-teal-600 hover:to-emerald-600 text-white font-bold text-sm rounded-2xl shadow-lg shadow-teal-900/30 cursor-pointer transition-all active:scale-98 flex items-center justify-center gap-2"
+                className="w-full py-3.5 bg-[#10233f] hover:bg-cyan-700 text-white font-bold text-sm rounded-2xl shadow-lg shadow-slate-900/20 cursor-pointer transition-all active:scale-98 flex items-center justify-center gap-2"
               >
                 <span>انطلاق المسابقة الآن</span>
                 <ArrowRight className="w-4 h-4 rotate-180" />
@@ -551,7 +551,7 @@ export const StudentQuizView: React.FC<StudentQuizViewProps> = ({
           )}
 
           {/* Question Card (Disables user text selection to prevent cheating) */}
-          <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-sm space-y-6 select-none">
+          <div className="quiz-question bg-white rounded-[2rem] border border-slate-200 p-6 sm:p-9 shadow-sm space-y-6 select-none">
             <h2 className="text-base sm:text-lg font-black text-slate-900 leading-relaxed">
               {currentQ.text}
             </h2>
@@ -648,7 +648,7 @@ export const StudentQuizView: React.FC<StudentQuizViewProps> = ({
                     تم استلام وحفظ إجاباتك بنجاح ✓
                   </div>
                   <h1 className="text-2xl font-black text-slate-900">
-                    أحسنت يا {finalResult.name}! 🌟
+                    أحسنت يا {finalResult.name}!
                   </h1>
                   <p className="text-xs text-slate-600 max-w-md mx-auto">
                     لقد أتممت الإجابة على جميع أسئلة المسابقة ({finalResult.totalQuestions} أسئلة) وتم تدوين وقتك بدقة.
@@ -703,7 +703,7 @@ export const StudentQuizView: React.FC<StudentQuizViewProps> = ({
                     اكتملت المسابقة وأعلنت النتائج!
                   </div>
                   <h1 className="text-2xl font-black text-slate-900">
-                    مبارك، يا {finalResult.name}! 🌟
+                    مبارك، يا {finalResult.name}!
                   </h1>
                   <p className="text-xs text-slate-500">
                     لقد أنهيت جميع أسئلة المسابقة بأداء متميز.

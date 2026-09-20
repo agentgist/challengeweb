@@ -191,18 +191,16 @@ export const CertificateModal: React.FC<CertificateModalProps> = ({
             <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
               {score !== undefined && (
                 <div className="bg-teal-50 border border-teal-200 text-teal-800 px-3.5 py-1 rounded-full text-xs font-bold flex items-center gap-1 shadow-2xs">
-                  <span>🏅</span>
                   <span>النتيجة: {score} نقطة</span>
                 </div>
               )}
               {rank && (
                 <div className="bg-amber-50 border border-amber-200 text-amber-800 px-3.5 py-1 rounded-full text-xs font-bold flex items-center gap-1 shadow-2xs">
-                  <span>🏆</span>
                   <span>المركز: #{rank}</span>
                 </div>
               )}
               <div className="bg-slate-100 border border-slate-200 text-slate-700 px-3.5 py-1 rounded-full text-xs font-bold shadow-2xs">
-                🏛️ {schoolName}
+                {schoolName}
               </div>
             </div>
           </div>

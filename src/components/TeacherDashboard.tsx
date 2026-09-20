@@ -186,15 +186,15 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
   const needsImprovementCount = allTeacherResults.filter(r => (r.correctAnswers / (r.totalQuestions || 1)) < 0.50).length;
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6" dir="rtl">
+    <div className="teacher-dashboard max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6" dir="rtl">
       
       {/* Teacher Profile Banner */}
-      <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-teal-950 rounded-3xl p-6 sm:p-8 text-white shadow-xl relative overflow-hidden">
+      <div className="dashboard-hero bg-[#10233f] rounded-[2rem] p-6 sm:p-8 text-white shadow-xl relative overflow-hidden">
         <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2 mb-2">
-              <span className="text-[11px] font-bold px-3 py-1 rounded-full bg-teal-500/20 text-teal-300 border border-teal-500/30">
-                لوحة المعلم المعتمد
+                <span className="text-[11px] font-bold px-3 py-1 rounded-full bg-cyan-300/15 text-cyan-200 border border-cyan-300/20">
+                  مساحة المعلم
               </span>
               <span className="text-[11px] font-mono px-2.5 py-1 rounded-full bg-white/10 text-slate-300 border border-white/10">
                 رمزك: {currentTeacher.code}
@@ -205,7 +205,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
               <School className="w-3.5 h-3.5 text-teal-400" />
               <span>{currentTeacher.school || 'المملكة العربية السعودية'}</span>
               <span>•</span>
-              <span>المسابقات المنشأة: {myCompetitions.length} من {currentTeacher.maxCompetitions}</span>
+              <span>{myCompetitions.length} من {currentTeacher.maxCompetitions} مسابقات مستخدمة</span>
             </p>
           </div>
 
@@ -215,7 +215,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                 setEditingComp(null);
                 setIsBuilderOpen(true);
               }}
-              className="flex-1 md:flex-initial flex items-center justify-center gap-2 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 text-white font-bold text-xs sm:text-sm px-5 py-3 rounded-2xl shadow-lg shadow-teal-900/40 cursor-pointer transition-all active:scale-95"
+              className="flex-1 md:flex-initial flex items-center justify-center gap-2 bg-cyan-400 hover:bg-cyan-300 text-[#10233f] font-black text-xs sm:text-sm px-5 py-3 rounded-2xl shadow-lg shadow-cyan-950/30 cursor-pointer transition-all active:scale-95"
             >
               <Plus className="w-4 h-4" />
               <span>إنشاء مسابقة جديدة</span>
@@ -233,7 +233,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
       </div>
 
       {/* Tabs Menu */}
-      <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-2 overflow-x-auto">
+      <div className="dashboard-tabs flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-2 overflow-x-auto">
         <button
           onClick={() => setActiveTab('my_competitions')}
           className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
@@ -243,7 +243,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
           }`}
         >
           <Trophy className="w-4 h-4 text-amber-400" />
-          <span>مسابقاتي ({myCompetitions.length})</span>
+          <span>المسابقات ({myCompetitions.length})</span>
         </button>
 
         <button
@@ -255,7 +255,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
           }`}
         >
           <Award className="w-4 h-4 text-amber-500" />
-          <span>مركز الشهادات والتكريم</span>
+          <span>الشهادات</span>
         </button>
 
         <button
@@ -267,7 +267,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
           }`}
         >
           <FileText className="w-4 h-4 text-teal-400" />
-          <span>النتائج والتقارير</span>
+          <span>النتائج</span>
         </button>
 
         <button
@@ -279,7 +279,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
           }`}
         >
           <BarChart3 className="w-4 h-4 text-emerald-400" />
-          <span>الإحصائيات والتحليلات</span>
+          <span>التحليلات</span>
         </button>
       </div>
 
@@ -324,10 +324,10 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                             ? 'bg-sky-50 text-sky-700 border border-sky-200'
                             : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                         }`}>
-                          {comp.participationType === 'team' ? '👥 فرق جماعية' : '👤 فردية'}
+                          {comp.participationType === 'team' ? 'فرق جماعية' : 'فردية'}
                         </span>
                         <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
-                          {comp.questionType === 'ai' ? '✨ ذكاء اصطناعي' : '✍️ إعداد يدوي'}
+                          {comp.questionType === 'ai' ? 'ذكاء اصطناعي' : 'إعداد يدوي'}
                         </span>
                       </div>
 
@@ -339,9 +339,9 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                       </p>
 
                       <div className="flex items-center gap-3 text-[11px] text-slate-500 pt-2 border-t border-slate-100">
-                        <span>📝 {comp.questions.length} أسئلة</span>
-                        <span>⏱️ {comp.questionDuration}ث/سؤال</span>
-                        <span>👥 {resultsCount} مشارك</span>
+                        <span>{comp.questions.length} أسئلة</span>
+                        <span>{comp.questionDuration}ث/سؤال</span>
+                        <span>{resultsCount} مشارك</span>
                       </div>
                     </div>
 

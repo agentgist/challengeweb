@@ -190,7 +190,7 @@ export const TeacherAccessModal: React.FC<TeacherAccessModalProps> = ({
                     className="bg-amber-50 px-2 py-1 rounded-lg border border-amber-300 text-[11px] font-mono font-bold text-amber-900 hover:bg-amber-100 cursor-pointer shadow-2xs"
                     title="رمز جديد لتجربة شاشة أول استخدام"
                   >
-                    TCHR-NEW-2026 (أول استخدام ✨)
+                    TCHR-NEW-2026 (أول استخدام)
                   </button>
                 </div>
               </div>

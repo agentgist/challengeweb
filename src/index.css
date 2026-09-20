@@ -79,6 +79,43 @@ button {
   color: #10233f;
 }
 
+.quiz-page,
+.teacher-dashboard {
+  animation: page-enter 420ms ease-out both;
+}
+
+.quiz-panel,
+.quiz-question,
+.teacher-dashboard > section,
+.teacher-dashboard .bg-white {
+  box-shadow: 0 14px 40px rgba(15, 35, 63, 0.06);
+}
+
+.dashboard-hero {
+  isolation: isolate;
+}
+
+.dashboard-hero::after {
+  content: '';
+  position: absolute;
+  width: 22rem;
+  height: 22rem;
+  left: -8rem;
+  bottom: -16rem;
+  border: 1px solid rgba(103, 232, 249, 0.14);
+  border-radius: 9999px;
+  pointer-events: none;
+}
+
+.dashboard-tabs button {
+  border-radius: 0.75rem;
+}
+
+@keyframes page-enter {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 .dark .bg-mesh-subtle {
   background: 
     radial-gradient(at 0% 0%, rgba(13, 148, 136, 0.12) 0px, transparent 50%),
